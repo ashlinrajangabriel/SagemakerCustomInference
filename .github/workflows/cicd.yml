@@ -1,0 +1,50 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  AWS_REGION: us-west-2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        tags: ${{ env.AWS_REGION }}/my-custom-scikit-learn-image
+
+    - name: Deploy with Terraform
+      uses: hashicorp/terraform-github-actions@v2
+      with:
+        tf_actions_version: 0.12.x
+        tf_actions_subcommand: apply
+        tf_actions_working_dir: terraform
+        tf_actions_auto_approve: true
+        
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Run unit tests
+      uses: actions/python-action@v1
+      with:
+        working-directory: ./tests
+        entrypoint: python
+        args: -m unittest discover
